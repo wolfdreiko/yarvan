@@ -1,0 +1,28 @@
+# Dependencias Python para módulos de IA en Yarvan
+
+# Procesamiento de imágenes y visión por computadora
+opencv-python==4.10.0.84
+mediapipe==0.10.14
+Pillow==10.3.0
+
+# Machine Learning / Deep Learning
+torch==2.3.0
+torchvision==0.18.0
+tensorflow==2.16.1
+scikit-learn==1.5.1
+
+# Manejo de datos
+pandas==2.2.2
+numpy==1.26.4
+
+# APIs y servicios
+fastapi==0.111.0
+uvicorn==0.30.1
+python-multipart==0.0.9
+
+# Autenticación y seguridad
+pyjwt==2.8.0
+bcrypt==4.1.2
+
+# Otros
+requests==2.32.3

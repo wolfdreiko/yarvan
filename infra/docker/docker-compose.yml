@@ -1,0 +1,200 @@
+version: '3.8'
+
+services:
+  # Databases
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: yarvan
+      POSTGRES_USER: yarvan
+      POSTGRES_PASSWORD: yarvan123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: yarvan
+      RABBITMQ_DEFAULT_PASS: yarvan123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  # API Gateway
+  api-gateway:
+    build: ../../services/api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=http://auth:3000
+      - USERS_SERVICE_URL=http://users:3000
+      - DRIVERS_SERVICE_URL=http://drivers:3000
+      - TRIPS_SERVICE_URL=http://trips:3000
+      - DISPATCH_SERVICE_URL=http://dispatch:3000
+      - GEOFENCE_SERVICE_URL=http://geofence:3000
+      - WALLET_SERVICE_URL=http://wallet:3000
+      - COMPLIANCE_SERVICE_URL=http://compliance:3000
+      - DEMAND_SERVICE_URL=http://demand-engine:3000
+      - NOTIFICATIONS_SERVICE_URL=http://notifications:3000
+    depends_on:
+      - auth
+      - users
+      - drivers
+      - trips
+      - dispatch
+      - geofence
+      - wallet
+      - compliance
+      - demand-engine
+      - notifications
+
+  # Microservices
+  auth:
+    build: ../../services/auth
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=24h
+    expose:
+      - "3000"
+
+  users:
+    build: ../../services/users
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_users
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  drivers:
+    build: ../../services/drivers
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_drivers
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  trips:
+    build: ../../services/trips
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_trips
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  dispatch:
+    build: ../../services/dispatch
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    expose:
+      - "3000"
+
+  geofence:
+    build: ../../services/geofence
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_geofence
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  wallet:
+    build: ../../services/wallet
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_wallet
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  compliance:
+    build: ../../services/compliance
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=yarvan
+      - DB_PASS=yarvan123
+      - DB_NAME=yarvan_compliance
+    depends_on:
+      - postgres
+    expose:
+      - "3000"
+
+  demand-engine:
+    build: ../../services/demand-engine
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    expose:
+      - "3000"
+
+  notifications:
+    build: ../../services/notifications
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    expose:
+      - "3000"
+
+  # Admin Panel
+  admin-panel:
+    build: ../../apps/admin-panel
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:

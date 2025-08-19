@@ -1,0 +1,26 @@
+# Backend (NestJS / Node)
+@nestjs/core
+@nestjs/common
+@nestjs/graphql
+typeorm
+pg
+passport
+passport-jwt
+class-validator
+cache-manager-redis-store
+socket.io
+
+# Frontend (Flutter y React)
+flutter_bloc
+firebase_messaging
+google_maps_flutter
+dio
+provider
+react
+next
+
+# Infraestructura
+docker
+kubernetes
+redis
+rabbitmq
