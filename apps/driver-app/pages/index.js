@@ -25,11 +25,25 @@ export default function DriverApp() {
     
     const newStatus = status === 'online' ? 'offline' : 'online';
     try {
+      // Actualizar estado en drivers service
       await fetch(`http://localhost:3004/drivers/${driver.id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
+      
+      // Notificar a dispatch
+      await fetch('http://localhost:3007/dispatch/driver-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: driver.id,
+          lat: 4.6097,
+          lng: -74.0817,
+          status: newStatus
+        })
+      });
+      
       setStatus(newStatus);
     } catch (error) {
       alert('Error cambiando estado');

@@ -1,89 +1,110 @@
 import { Injectable } from '@nestjs/common';
-import { TripRequest, DriverLocation } from './dispatch.controller';
+
+export interface TripRequest {
+  id: string;
+  passengerId: number;
+  originLat: number;
+  originLng: number;
+  destLat: number;
+  destLng: number;
+  originAddress: string;
+  destinationAddress: string;
+}
+
+export interface DriverLocation {
+  driverId: number;
+  lat: number;
+  lng: number;
+  status: 'online' | 'offline';
+}
 
 @Injectable()
 export class DispatchService {
   private tripQueue: TripRequest[] = [];
   private availableDrivers: Map<number, DriverLocation> = new Map();
 
-  async addTripRequest(tripRequest: TripRequest) {
-    this.tripQueue.push(tripRequest);
-    console.log(`Trip ${tripRequest.id} added to queue`);
+  async addTripRequest(trip: TripRequest) {
+    this.tripQueue.push(trip);
+    console.log(`Trip ${trip.id} added to queue`);
     
-    // Try immediate assignment
-    const assignment = await this.assignDriver(tripRequest.id);
-    return { tripRequest, assignment };
+    // Intentar asignar inmediatamente
+    const assignment = await this.assignNextTrip();
+    return assignment || { success: true, queued: true };
   }
 
   async updateDriverLocation(location: DriverLocation) {
     if (location.status === 'online') {
       this.availableDrivers.set(location.driverId, location);
+      console.log(`Driver ${location.driverId} is now online`);
     } else {
       this.availableDrivers.delete(location.driverId);
+      console.log(`Driver ${location.driverId} is now offline`);
     }
-    return { success: true, availableDrivers: this.availableDrivers.size };
+    return { success: true };
   }
 
-  async assignDriver(tripId: number) {
-    const tripIndex = this.tripQueue.findIndex(trip => trip.id === tripId);
-    if (tripIndex === -1) return { error: 'Trip not found in queue' };
-
-    const trip = this.tripQueue[tripIndex];
-    const nearestDriver = this.findNearestDriver(trip.originLat, trip.originLng);
-
-    if (!nearestDriver) {
-      return { error: 'No available drivers' };
+  async assignNextTrip() {
+    if (this.tripQueue.length === 0) {
+      return { error: 'No trips in queue' };
     }
 
-    // Remove trip from queue and driver from available
-    this.tripQueue.splice(tripIndex, 1);
-    this.availableDrivers.delete(nearestDriver.driverId);
-
-    console.log(`Trip ${tripId} assigned to driver ${nearestDriver.driverId}`);
+    const trip = this.tripQueue.shift();
+    const drivers = Array.from(this.availableDrivers.values());
     
-    return {
-      tripId,
-      driverId: nearestDriver.driverId,
-      eta: this.calculateETA(trip.originLat, trip.originLng, nearestDriver.lat, nearestDriver.lng),
-      distance: this.calculateDistance(trip.originLat, trip.originLng, nearestDriver.lat, nearestDriver.lng)
-    };
-  }
+    if (drivers.length === 0) {
+      // Reencolar el viaje
+      this.tripQueue.unshift(trip);
+      return { error: 'No drivers available' };
+    }
 
-  private findNearestDriver(lat: number, lng: number): DriverLocation | null {
-    let nearest: DriverLocation | null = null;
-    let minDistance = Infinity;
-
-    for (const driver of this.availableDrivers.values()) {
-      const distance = this.calculateDistance(lat, lng, driver.lat, driver.lng);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = driver;
+    // Encontrar conductor más cercano
+    let nearest: { driver: DriverLocation; distance: number } | null = null;
+    
+    for (const driver of drivers) {
+      const distance = this.calculateDistance(
+        trip.originLat,
+        trip.originLng,
+        driver.lat,
+        driver.lng,
+      );
+      
+      if (!nearest || distance < nearest.distance) {
+        nearest = { driver, distance };
       }
     }
 
-    return nearest;
+    if (nearest) {
+      // Remover conductor de disponibles
+      this.availableDrivers.delete(nearest.driver.driverId);
+      
+      console.log(`Trip ${trip.id} assigned to driver ${nearest.driver.driverId}`);
+      
+      return {
+        tripId: trip.id,
+        driverId: nearest.driver.driverId,
+        distance: Number(nearest.distance.toFixed(2)),
+        eta: Math.ceil(nearest.distance * 2) // 2 min por km estimado
+      };
+    }
+
+    return { error: 'No suitable driver found' };
   }
 
   private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371; // Earth's radius in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat / 2) ** 2 +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  private calculateETA(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const distance = this.calculateDistance(lat1, lng1, lat2, lng2);
-    return Math.round(distance / 0.5); // Assuming 30 km/h average speed
-  }
-
-  async getQueue() {
+  async getQueueStatus() {
     return {
-      pendingTrips: this.tripQueue.length,
+      queueLength: this.tripQueue.length,
       availableDrivers: this.availableDrivers.size,
-      queue: this.tripQueue
+      drivers: Array.from(this.availableDrivers.values())
     };
   }
 }

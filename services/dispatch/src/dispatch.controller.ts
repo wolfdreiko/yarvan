@@ -1,43 +1,31 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
-
-export interface TripRequest {
-  id: number;
-  passengerId: number;
-  originLat: number;
-  originLng: number;
-  destinationLat: number;
-  destinationLng: number;
-}
-
-export interface DriverLocation {
-  driverId: number;
-  lat: number;
-  lng: number;
-  status: string;
-}
 
 @Controller('dispatch')
 export class DispatchController {
-  constructor(private dispatchService: DispatchService) {}
+  constructor(private readonly dispatchService: DispatchService) {}
 
   @Post('request')
-  async requestTrip(@Body() tripRequest: TripRequest) {
-    return this.dispatchService.addTripRequest(tripRequest);
+  async requestTrip(@Body() tripData: any) {
+    const trip = {
+      id: `trip_${Date.now()}`,
+      ...tripData
+    };
+    return this.dispatchService.addTripRequest(trip);
   }
 
   @Post('driver-location')
-  async updateDriverLocation(@Body() location: DriverLocation) {
-    return this.dispatchService.updateDriverLocation(location);
+  async updateDriverLocation(@Body() locationData: any) {
+    return this.dispatchService.updateDriverLocation(locationData);
   }
 
-  @Get('assign/:tripId')
-  async assignDriver(@Param('tripId') tripId: string) {
-    return this.dispatchService.assignDriver(parseInt(tripId));
+  @Post('assign')
+  async assignTrip() {
+    return this.dispatchService.assignNextTrip();
   }
 
-  @Get('queue')
-  async getQueue() {
-    return this.dispatchService.getQueue();
+  @Get('status')
+  async getStatus() {
+    return this.dispatchService.getQueueStatus();
   }
 }
